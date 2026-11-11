@@ -116,7 +116,12 @@ def land_file(
     audit.record(rec)
     log.info(
         "loaded: %s/%s -> s3://%s/%s (%d bytes, %d lines)",
-        source, dataset, lake.bucket, object_key, fp.size_bytes, fp.line_count,
+        source,
+        dataset,
+        lake.bucket,
+        object_key,
+        fp.size_bytes,
+        fp.line_count,
     )
     return rec
 
@@ -183,8 +188,14 @@ def ingest_cms_dataset(
     session = session or requests.Session()
     url = resolve_cms_download_url(ds, session)
     return ingest_http_csv(
-        lake=lake, audit=audit, run_id=run_id, source="cms", dataset=ds.name,
-        url=url, ingest_date=ingest_date, session=session,
+        lake=lake,
+        audit=audit,
+        run_id=run_id,
+        source="cms",
+        dataset=ds.name,
+        url=url,
+        ingest_date=ingest_date,
+        session=session,
     )
 
 
@@ -231,7 +242,10 @@ def ingest_synthea_file(
         local_path=item.path,
         source_uri=f"file://{item.path}",
         object_key=bronze_key(
-            "synthea", item.table, ingest_date, f"{item.table}.csv",
+            "synthea",
+            item.table,
+            ingest_date,
+            f"{item.table}.csv",
             partitions={"state": item.state},
         ),
     )

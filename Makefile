@@ -1,4 +1,4 @@
-.PHONY: help venv env up down logs synthea ingest test lint fmt psql clean
+.PHONY: help venv env up down logs synthea ingest transform test lint fmt psql clean
 
 help:  ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-10s %s\n", $$1, $$2}'
@@ -23,9 +23,14 @@ logs:  ## Tail airflow scheduler logs
 synthea:  ## Generate synthetic member population into ./data/synthea
 	docker compose --profile generate run --rm synthea
 
-ingest:  ## Trigger the bronze ingestion DAG
+ingest:  ## Trigger bronze ingestion (transform_silver follows automatically)
+	docker compose exec airflow-scheduler airflow dags unpause transform_silver
 	docker compose exec airflow-scheduler airflow dags unpause ingest_bronze
 	docker compose exec airflow-scheduler airflow dags trigger ingest_bronze
+
+transform:  ## Run bronze->silver->warehouse without re-ingesting
+	docker compose exec airflow-scheduler airflow dags unpause transform_silver
+	docker compose exec airflow-scheduler airflow dags trigger transform_silver
 
 test:  ## Run unit tests
 	.venv/bin/pytest -q

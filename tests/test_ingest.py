@@ -73,8 +73,10 @@ def test_discover_synthea_files(tmp_path: Path):
             (tmp_path / state / "_SUCCESS").touch()
     found = discover_synthea_files(tmp_path)
     assert {(f.state, f.table) for f in found} == {
-        ("missouri", "patients"), ("missouri", "encounters"),
-        ("texas", "patients"), ("texas", "encounters"),
+        ("missouri", "patients"),
+        ("missouri", "encounters"),
+        ("texas", "patients"),
+        ("texas", "encounters"),
     }
     assert discover_synthea_files(tmp_path / "missing") == []
 
@@ -85,8 +87,12 @@ def test_discover_synthea_files(tmp_path: Path):
 def test_land_file_uploads_then_skips_unchanged(lake: Lake, csv_file: Path):
     audit = InMemoryAuditLog()
     kwargs = dict(
-        lake=lake, audit=audit, source="cms", dataset="hrrp",
-        local_path=csv_file, source_uri="https://example/hrrp.csv",
+        lake=lake,
+        audit=audit,
+        source="cms",
+        dataset="hrrp",
+        local_path=csv_file,
+        source_uri="https://example/hrrp.csv",
     )
 
     first = land_file(run_id="r1", object_key="bronze/a.csv", **kwargs)
@@ -115,8 +121,14 @@ def test_land_file_records_failure(csv_file: Path):
     audit = InMemoryAuditLog()
     with pytest.raises(RuntimeError):
         land_file(
-            lake=BrokenLake(), audit=audit, run_id="r1", source="cms", dataset="hrrp",
-            local_path=csv_file, source_uri="u", object_key="k",
+            lake=BrokenLake(),
+            audit=audit,
+            run_id="r1",
+            source="cms",
+            dataset="hrrp",
+            local_path=csv_file,
+            source_uri="u",
+            object_key="k",
         )
     assert audit.records[-1].status == "failed"
     assert "s3 down" in audit.records[-1].error_message
@@ -128,8 +140,11 @@ def test_ingest_synthea_file(lake: Lake, tmp_path: Path):
     p = tmp_path / "encounters.csv"
     p.write_text("Id,START\n1,2020-01-01\n")
     rec = ingest_synthea_file(
-        lake=lake, audit=InMemoryAuditLog(), run_id="r1",
-        item=SyntheaFile("missouri", "encounters", p), ingest_date=D,
+        lake=lake,
+        audit=InMemoryAuditLog(),
+        run_id="r1",
+        item=SyntheaFile("missouri", "encounters", p),
+        ingest_date=D,
     )
     assert rec.dataset == "encounters:missouri"
     assert lake.list_keys("bronze/synthea/") == [
@@ -171,12 +186,18 @@ class FakeSession:
 
 def test_resolve_cms_download_url_picks_csv():
     ds = CMS_DATASETS["hrrp"]
-    session = FakeSession({
-        ds.metastore_url: FakeResponse(json_data={"distribution": [
-            {"downloadURL": "https://cms/x.json"},
-            {"downloadURL": "https://cms/FY_2026_HRRP.csv"},
-        ]})
-    })
+    session = FakeSession(
+        {
+            ds.metastore_url: FakeResponse(
+                json_data={
+                    "distribution": [
+                        {"downloadURL": "https://cms/x.json"},
+                        {"downloadURL": "https://cms/FY_2026_HRRP.csv"},
+                    ]
+                }
+            )
+        }
+    )
     assert resolve_cms_download_url(ds, session) == "https://cms/FY_2026_HRRP.csv"
 
 
@@ -190,10 +211,12 @@ def test_resolve_cms_download_url_raises_without_csv():
 def test_ingest_cms_dataset_end_to_end(lake: Lake):
     ds = CMS_DATASETS["hrrp"]
     csv_url = "https://cms/FY_2026_HRRP.csv"
-    session = FakeSession({
-        ds.metastore_url: FakeResponse(json_data={"distribution": [{"downloadURL": csv_url}]}),
-        csv_url: FakeResponse(content=b"Facility ID,Measure Name\n010001,READM-30-HF-HRRP\n"),
-    })
+    session = FakeSession(
+        {
+            ds.metastore_url: FakeResponse(json_data={"distribution": [{"downloadURL": csv_url}]}),
+            csv_url: FakeResponse(content=b"Facility ID,Measure Name\n010001,READM-30-HF-HRRP\n"),
+        }
+    )
     audit = InMemoryAuditLog()
     rec = ingest_cms_dataset(
         lake=lake, audit=audit, run_id="r1", ds=ds, ingest_date=D, session=session

@@ -26,7 +26,7 @@ LOCAL (docker compose)                                              CLOUD
 Heavy compute runs locally. Only curated, tokenized marts are published to the cloud. See [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr/).
 
 ## Stack
-**Orchestration** Airflow 3.3 · **Processing** PySpark + Delta Lake · **Storage** S3-compatible lake (SeaweedFS locally), PostgreSQL 16 · **Modeling** dbt · **Quality** Great Expectations, dbt tests · **Serving** FastAPI, Next.js on Vercel, Neon · **Infra** Docker Compose, Terraform, GitHub Actions
+**Orchestration** Airflow 3.3 · **Processing** PySpark 4.1 + Delta Lake 4.4 · **Storage** S3-compatible lake (SeaweedFS locally), PostgreSQL 16 · **Modeling** dbt · **Quality** Great Expectations, dbt tests · **Serving** FastAPI, Next.js on Vercel, Neon · **Infra** Docker Compose, Terraform, GitHub Actions
 
 ## Quickstart
 
@@ -34,11 +34,23 @@ Prerequisites: Docker Desktop (8 GB+ RAM allocated) and Python 3.11.
 
 ```bash
 make venv && make test     # unit tests (no Docker needed)
-make up                    # postgres, seaweedfs, airflow  -> http://localhost:8080 (admin/admin)
+make up                    # postgres, seaweedfs, spark, airflow
+                           #   Airflow http://localhost:8080 (admin/admin) · Spark http://localhost:8081
 make synthea               # generate synthetic members (3 states x 3,000 by default)
-make ingest                # trigger the ingest_bronze DAG
-make psql                  # then: SELECT * FROM ops.ingestion_log;
+make ingest                # ingest_bronze -> transform_silver runs automatically (asset-triggered)
+make transform             # re-run bronze -> silver -> warehouse only
+make psql                  # e.g. SELECT * FROM ops.dq_results; SELECT * FROM raw.inpatient_stays;
 ```
+
+## Pipeline (current)
+| DAG | What it does |
+|---|---|
+| `ingest_bronze` | Lands CMS, CDC, and Synthea files in the S3 lake, sha256-audited and idempotent |
+| `transform_silver` | PySpark on a Spark cluster: schema contracts, typed Delta tables, quarantine, PII minimization, hospital entity resolution, readmission flags, then loads Postgres `raw.*` and runs smoke checks |
+
+**Readmission logic:** contiguous stays (ICU → ward, transfers) are merged into admission episodes with a gaps-and-islands step. Planned readmissions (chemo, transplant, rehab, elective procedures) are excluded, and index stays near the end of the data are censored. The result is a simplified version of the CMS Hospital-Wide Readmission measure. See [docs/architecture.md](docs/architecture.md).
+
+> **Data caveat:** Synthea generates far fewer unplanned readmissions than real claims do. After correct exclusions, the synthetic 30-day rate is ~1.3%, versus ~14% all-cause in Medicare FFS. The pipeline logic is unit-tested independently of this rate.
 
 ## Data sources
 | Source | What | Volume |
@@ -52,7 +64,7 @@ All member data is **synthetic**. No real PHI is used anywhere.
 
 ## Status
 - [x] **Phase 1 — Foundation:** Compose stack, Synthea generator, audited and idempotent bronze ingestion DAG
-- [ ] Phase 2 — PySpark bronze→silver, readmission flags
+- [x] **Phase 2 — Bronze → silver:** Spark 4.1 + Delta cluster, schema contracts, quarantine + DQ metrics, entity resolution, episode-based readmission flags, Postgres load (30 unit tests)
 - [ ] Phase 3 — dbt star schema, Great Expectations
 - [ ] Phase 4 — FastAPI + Next.js on Vercel, Terraform (Neon)
 - [ ] Phase 5 — CI/CD (GitHub Actions, security scans)

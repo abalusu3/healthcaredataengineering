@@ -1,7 +1,8 @@
 # ReadmitIQ local platform.
-#   docker compose up -d                       -> postgres, seaweedfs (S3), airflow
+#   docker compose up -d                       -> postgres, seaweedfs (S3), spark, airflow
 #   docker compose --profile generate run --rm synthea   -> generate synthetic members
-# Spark (Phase 2) and Redpanda (Phase 6) are added in later phases.
+#   Spark UI: http://localhost:8081   Airflow UI: http://localhost:8080
+# Redpanda (Phase 6) is added in a later phase.
 
 x-airflow-common: &airflow-common
   build:
@@ -29,12 +30,16 @@ x-airflow-common: &airflow-common
     WAREHOUSE_USER: ${WAREHOUSE_USER:-readmitiq}
     WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-readmitiq}
     SYNTHEA_DATA_DIR: /opt/airflow/data/synthea
+    # --- Spark (driver runs inside Airflow, executors on spark-worker) ---
+    SPARK_MASTER_URL: spark://spark-master:7077
+    AIRFLOW_CONN_SPARK_DEFAULT: '{"conn_type": "spark", "host": "spark://spark-master", "port": 7077}'
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
     - ./readmitiq:/opt/airflow/project/readmitiq:ro
+    - ./spark:/opt/airflow/spark:ro
     - ./data:/opt/airflow/data:ro
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on
@@ -84,6 +89,36 @@ services:
       interval: 10s
       retries: 10
       start_period: 10s
+    restart: unless-stopped
+
+  # Spark standalone cluster. Same pyspark/jars/Python as the Airflow driver image.
+  spark-master:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    image: readmitiq/spark:4.1.3
+    command: >
+      spark-class org.apache.spark.deploy.master.Master
+      --host spark-master --port 7077 --webui-port 8080
+    ports:
+      - "8081:8080"   # Spark master UI
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  spark-worker:
+    image: readmitiq/spark:4.1.3
+    command: >
+      spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+      --cores 4 --memory 3g --webui-port 8081
+    volumes:
+      - ./readmitiq:/opt/project/readmitiq:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
     restart: unless-stopped
 
   airflow-apiserver:

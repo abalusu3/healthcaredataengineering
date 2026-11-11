@@ -1,4 +1,5 @@
 # Versions are resolved by the Airflow constraints file in the Dockerfile.
+apache-airflow-providers-apache-spark
 boto3
 psycopg2-binary
 requests

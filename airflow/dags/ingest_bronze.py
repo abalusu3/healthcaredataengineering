@@ -16,7 +16,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pendulum
-from airflow.sdk import dag, get_current_context, task
+from airflow.sdk import Asset, dag, get_current_context, task
+
+# Downstream DAGs (transform_silver) are scheduled on this asset.
+BRONZE = Asset("s3://readmitiq-lake/bronze")
 
 DEFAULT_ARGS = {
     "owner": "data-engineering",
@@ -68,8 +71,11 @@ def ingest_bronze():
 
         _, lake, audit = _deps()
         rec = ingest_cms_dataset(
-            lake=lake, audit=audit, run_id=_run_id(),
-            ds=CMS_DATASETS[dataset_name], ingest_date=_today(),
+            lake=lake,
+            audit=audit,
+            run_id=_run_id(),
+            ds=CMS_DATASETS[dataset_name],
+            ingest_date=_today(),
         )
         return {"dataset": rec.dataset, "status": rec.status, "lines": rec.line_count}
 
@@ -80,8 +86,13 @@ def ingest_bronze():
 
         _, lake, audit = _deps()
         rec = ingest_http_csv(
-            lake=lake, audit=audit, run_id=_run_id(), source="cdc",
-            dataset="svi_county", url=SVI_COUNTY_URL, ingest_date=_today(),
+            lake=lake,
+            audit=audit,
+            run_id=_run_id(),
+            source="cdc",
+            dataset="svi_county",
+            url=SVI_COUNTY_URL,
+            ingest_date=_today(),
         )
         return {"dataset": rec.dataset, "status": rec.status, "lines": rec.line_count}
 
@@ -93,8 +104,7 @@ def ingest_bronze():
         files = discover_synthea_files(settings.synthea_data_dir)
         if not files:
             raise FileNotFoundError(
-                f"No Synthea CSVs under {settings.synthea_data_dir}. "
-                "Run: make synthea"
+                f"No Synthea CSVs under {settings.synthea_data_dir}. Run: make synthea"
             )
         return [{"state": f.state, "table": f.table, "path": str(f.path)} for f in files]
 
@@ -106,13 +116,15 @@ def ingest_bronze():
         get_current_context()["synthea_file_label"] = f"{item['table']}:{item['state']}"
         _, lake, audit = _deps()
         rec = ingest_synthea_file(
-            lake=lake, audit=audit, run_id=_run_id(),
+            lake=lake,
+            audit=audit,
+            run_id=_run_id(),
             item=SyntheaFile(state=item["state"], table=item["table"], path=Path(item["path"])),
             ingest_date=_today(),
         )
         return {"dataset": rec.dataset, "status": rec.status, "lines": rec.line_count}
 
-    @task
+    @task(outlets=[BRONZE])
     def summarize(cms: list[dict], svi: dict, synthea: list[dict]) -> None:
         results = [*cms, svi, *synthea]
         by_status: dict[str, int] = {}

@@ -38,9 +38,7 @@ class Lake:
 
     def put_file(self, key: str, path: Path, metadata: dict[str, str] | None = None) -> None:
         # upload_file transparently switches to multipart for large files.
-        self.client.upload_file(
-            str(path), self.bucket, key, ExtraArgs={"Metadata": metadata or {}}
-        )
+        self.client.upload_file(str(path), self.bucket, key, ExtraArgs={"Metadata": metadata or {}})
 
     def list_keys(self, prefix: str) -> list[str]:
         keys: list[str] = []

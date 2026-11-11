@@ -58,8 +58,16 @@ class PostgresAuditLog:
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
-                    rec.run_id, rec.source, rec.dataset, rec.object_key, rec.source_uri,
-                    rec.sha256, rec.size_bytes, rec.line_count, rec.status, rec.error_message,
+                    rec.run_id,
+                    rec.source,
+                    rec.dataset,
+                    rec.object_key,
+                    rec.source_uri,
+                    rec.sha256,
+                    rec.size_bytes,
+                    rec.line_count,
+                    rec.status,
+                    rec.error_message,
                 ),
             )
 
