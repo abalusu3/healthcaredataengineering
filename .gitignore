@@ -1,0 +1,46 @@
+# Personal notes (job posting this portfolio targets; keep employer out of public repo)
+jobdescription.md
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Generated data (never commit synthetic PHI-like data or downloads)
+data/*
+!data/.gitkeep
+
+# Airflow runtime (folders kept via .gitkeep; contents are generated)
+airflow/logs/
+airflow/config/*
+!airflow/config/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Spark / Delta
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Node
+node_modules/
+.next/
+.vercel/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

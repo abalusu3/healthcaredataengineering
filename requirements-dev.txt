@@ -1,0 +1,6 @@
+boto3
+requests
+psycopg2-binary
+pytest
+moto[s3]
+ruff

@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "readmitiq-local",
+      "credentials": [
+        {
+          "accessKey": "readmitiq",
+          "secretKey": "readmitiq-local-secret"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

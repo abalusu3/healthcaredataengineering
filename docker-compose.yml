@@ -1,0 +1,172 @@
+# ReadmitIQ local platform.
+#   docker compose up -d                       -> postgres, seaweedfs (S3), airflow
+#   docker compose --profile generate run --rm synthea   -> generate synthetic members
+# Spark (Phase 2) and Redpanda (Phase 6) are added in later phases.
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  image: readmitiq/airflow:3.3.2
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY:-}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:-change-me-local-jwt-secret}
+    AIRFLOW__API_AUTH__JWT_ISSUER: readmitiq
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # --- project settings consumed by readmitiq.config ---
+    S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-readmitiq}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-readmitiq-local-secret}
+    LAKE_BUCKET: ${LAKE_BUCKET:-readmitiq-lake}
+    WAREHOUSE_HOST: postgres
+    WAREHOUSE_DB: ${WAREHOUSE_DB:-readmitiq}
+    WAREHOUSE_USER: ${WAREHOUSE_USER:-readmitiq}
+    WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-readmitiq}
+    SYNTHEA_DATA_DIR: /opt/airflow/data/synthea
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/config:/opt/airflow/config
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./readmitiq:/opt/airflow/project/readmitiq:ro
+    - ./data:/opt/airflow/data:ro
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-common-depends-on
+    postgres:
+      condition: service_healthy
+    seaweedfs:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16.15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      WAREHOUSE_DB: ${WAREHOUSE_DB:-readmitiq}
+      WAREHOUSE_USER: ${WAREHOUSE_USER:-readmitiq}
+      WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-readmitiq}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # S3-compatible object store for the bronze/silver lake (stand-in for S3/ADLS).
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    command: >
+      server -dir=/data -ip=seaweedfs -ip.bind=0.0.0.0
+      -master.volumeSizeLimitMB=512 -volume.max=0
+      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "8333:8333"   # S3 API
+      - "9333:9333"   # master UI
+    volumes:
+      - seaweedfs-data:/data
+      - ./docker/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9333/cluster/status"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -p /opt/airflow/{logs,dags,plugins,config}
+        /entrypoint airflow version
+        /entrypoint airflow config list >/dev/null
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-admin}
+    user: "0:0"
+    depends_on:
+      <<: *airflow-common-depends-on
+
+  # One-shot synthetic population generator (not started by `up`).
+  synthea:
+    profiles: ["generate"]
+    build:
+      context: .
+      dockerfile: docker/synthea/Dockerfile
+    image: readmitiq/synthea:v4.0.0
+    environment:
+      SYNTHEA_STATES: ${SYNTHEA_STATES:-Missouri Texas Georgia}
+      SYNTHEA_POPULATION_PER_STATE: ${SYNTHEA_POPULATION_PER_STATE:-3000}
+      SYNTHEA_SEED: ${SYNTHEA_SEED:-42}
+    volumes:
+      - ./data/synthea:/output
+
+volumes:
+  postgres-data:
+  seaweedfs-data:
