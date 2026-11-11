@@ -1,0 +1,5 @@
+# dbt + data quality toolchain (isolated venv in the Airflow image: /opt/analytics-venv)
+dbt-core==1.12.6
+dbt-postgres==1.11.0
+great-expectations[postgresql]==1.24.1
+psycopg2-binary

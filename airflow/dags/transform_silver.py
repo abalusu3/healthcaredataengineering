@@ -43,6 +43,7 @@ def spark_job(task_id: str, script: str, cores: int = 2, memory: str = "1500m", 
         executor_cores=cores,
         executor_memory=memory,
         verbose=False,
+        execution_timeout=timedelta(minutes=45),  # fail (and retry) instead of hanging
         **kw,
     )
 

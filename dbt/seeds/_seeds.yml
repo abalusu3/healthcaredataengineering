@@ -1,0 +1,38 @@
+version: 2
+
+seeds:
+  - name: charlson_condition_map
+    description: >
+      SNOMED CT condition codes present in the population mapped to Charlson Comorbidity Index
+      categories and weights (Charlson 1987 / Quan 2005). Curated by profiling raw.conditions.
+    config:
+      column_types:
+        snomed_code: text
+        weight: integer
+    columns:
+      - name: snomed_code
+        data_tests: [unique, not_null]
+      - name: charlson_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - myocardial_infarction
+                  - congestive_heart_failure
+                  - cerebrovascular_disease
+                  - dementia
+                  - chronic_pulmonary_disease
+                  - rheumatic_disease
+                  - mild_liver_disease
+                  - diabetes_uncomplicated
+                  - diabetes_complicated
+                  - renal_disease
+                  - malignancy
+                  - metastatic_solid_tumor
+      - name: weight
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 6]
+                quote: false

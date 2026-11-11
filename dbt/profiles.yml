@@ -1,0 +1,14 @@
+# Credentials come from the environment (same variables the rest of the stack uses).
+# Local:   WAREHOUSE_HOST=localhost (default)   In Airflow: WAREHOUSE_HOST=postgres
+readmitiq:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_HOST', 'localhost') }}"
+      port: "{{ env_var('WAREHOUSE_PORT', '5432') | int }}"
+      user: "{{ env_var('WAREHOUSE_USER', 'readmitiq') }}"
+      password: "{{ env_var('WAREHOUSE_PASSWORD', 'readmitiq') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB', 'readmitiq') }}"
+      schema: dbt
+      threads: 4

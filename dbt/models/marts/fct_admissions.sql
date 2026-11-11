@@ -1,0 +1,43 @@
+-- Grain: one admission episode. Central fact for every readmission metric.
+select
+    a.admission_id,
+    {{ dbt_utils.generate_surrogate_key(['a.member_id']) }} as member_key,
+    {{ dbt_utils.generate_surrogate_key(['a.organization_id']) }} as hospital_key,
+    a.payer_id,
+    a.admit_ts,
+    a.discharge_ts,
+    a.admit_ts::date as admit_date,
+    a.discharge_ts::date as discharge_date,
+    a.payer_type,
+    a.source_state,
+    coalesce(a.hrrp_cohort, 'Other') as hrrp_cohort,
+    a.age_at_admit,
+    a.encounter_count,
+    a.is_multi_facility,
+    a.los_days,
+    a.total_claim_cost,
+    a.payer_coverage,
+    -- LACE
+    l.lace_l,
+    l.lace_a,
+    l.lace_c,
+    l.lace_e,
+    (l.lace_l + l.lace_a + l.lace_c + l.lace_e) as lace_score,
+    {{ lace_risk_tier('(l.lace_l + l.lace_a + l.lace_c + l.lace_e)') }} as risk_tier,
+    l.charlson_score,
+    l.comorbidities,
+    l.is_emergent,
+    l.ed_visits_6m,
+    -- readmission outcome
+    a.is_planned,
+    a.has_cancer_treatment,
+    a.died_in_hospital,
+    a.is_censored,
+    a.is_index_eligible,
+    a.readmit_30d,
+    a.readmit_admission_id,
+    a.readmit_admit_ts,
+    a.days_to_readmit,
+    coalesce(a.readmit_cost, 0) as readmit_cost
+from {{ ref('stg_admissions') }} a
+join {{ ref('int_admission_lace') }} l using (admission_id)

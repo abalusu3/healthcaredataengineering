@@ -39,6 +39,8 @@ make up                    # postgres, seaweedfs, spark, airflow
 make synthea               # generate synthetic members (3 states x 3,000 by default)
 make ingest                # ingest_bronze -> transform_silver runs automatically (asset-triggered)
 make transform             # re-run bronze -> silver -> warehouse only
+make marts                 # re-run dbt + Great Expectations only
+make venv-analytics && make dbt   # optional: run dbt locally against localhost:5432
 make psql                  # e.g. SELECT * FROM ops.dq_results; SELECT * FROM raw.inpatient_stays;
 ```
 
@@ -47,6 +49,7 @@ make psql                  # e.g. SELECT * FROM ops.dq_results; SELECT * FROM ra
 |---|---|
 | `ingest_bronze` | Lands CMS, CDC, and Synthea files in the S3 lake, sha256-audited and idempotent |
 | `transform_silver` | PySpark on a Spark cluster: schema contracts, typed Delta tables, quarantine, PII minimization, hospital entity resolution, readmission flags, then loads Postgres `raw.*` and runs smoke checks |
+| `build_marts` | dbt (seeds, SCD2 snapshot, staging → intermediate → marts, 99 tests), then Great Expectations checks and dbt docs |
 
 **Readmission logic:** contiguous stays (ICU → ward, transfers) are merged into admission episodes with a gaps-and-islands step. Planned readmissions (chemo, transplant, rehab, elective procedures) are excluded, and index stays near the end of the data are censored. The result is a simplified version of the CMS Hospital-Wide Readmission measure. See [docs/architecture.md](docs/architecture.md).
 
@@ -65,7 +68,7 @@ All member data is **synthetic**. No real PHI is used anywhere.
 ## Status
 - [x] **Phase 1 — Foundation:** Compose stack, Synthea generator, audited and idempotent bronze ingestion DAG
 - [x] **Phase 2 — Bronze → silver:** Spark 4.1 + Delta cluster, schema contracts, quarantine + DQ metrics, entity resolution, episode-based readmission flags, Postgres load (30 unit tests)
-- [ ] Phase 3 — dbt star schema, Great Expectations
+- [x] **Phase 3 — Gold layer:** dbt star schema + 5 business marts, LACE risk scoring, SCD2 hospital snapshot, risk-adjusted (O/E) hospital scorecard, 99 dbt tests + 17 Great Expectations checks
 - [ ] Phase 4 — FastAPI + Next.js on Vercel, Terraform (Neon)
 - [ ] Phase 5 — CI/CD (GitHub Actions, security scans)
 - [ ] Phase 6 — Real-time ADT streaming

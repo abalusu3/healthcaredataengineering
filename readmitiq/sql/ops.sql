@@ -10,3 +10,12 @@ CREATE TABLE IF NOT EXISTS ops.dq_results (
     run_ts         TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_dq_results_table_time ON ops.dq_results (table_name, run_ts DESC);
+
+CREATE TABLE IF NOT EXISTS ops.gx_results (
+    run_ts        TIMESTAMPTZ NOT NULL,
+    table_name    TEXT        NOT NULL,
+    expectation   TEXT        NOT NULL,
+    column_name   TEXT,
+    success       BOOLEAN     NOT NULL,
+    observed      TEXT
+);

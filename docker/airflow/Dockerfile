@@ -28,5 +28,10 @@ RUN pip install --no-cache-dir "pyspark==${PYSPARK_VERSION}" "delta-spark==${DEL
 COPY docker/spark/fetch_jars.py /tmp/fetch_jars.py
 RUN python /tmp/fetch_jars.py
 
+# dbt + Great Expectations in an isolated venv (their pins conflict with Airflow's constraints).
+COPY requirements-analytics.txt /tmp/requirements-analytics.txt
+RUN python -m venv /home/airflow/analytics-venv \
+ && /home/airflow/analytics-venv/bin/pip install --no-cache-dir -r /tmp/requirements-analytics.txt
+
 # Project package is bind-mounted at runtime for fast iteration; make it importable.
 ENV PYTHONPATH=/opt/airflow/project

@@ -1,0 +1,39 @@
+name: readmitiq
+version: "1.0.0"
+config-version: 2
+profile: readmitiq
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # Readmission window and LACE risk-tier cut points (van Walraven et al., CMAJ 2010).
+  readmit_window_days: 30
+  lace_high_risk_min: 10
+  lace_moderate_risk_min: 5
+  # Hospitals need enough index admissions for a stable rate on the scorecard.
+  scorecard_min_index_admissions: 20
+  # Care-management program assumptions for the savings scenario (overridable).
+  outreach_cost_per_member: 150
+  outreach_effectiveness_pct: 20
+
+models:
+  readmitiq:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  readmitiq:
+    +schema: reference

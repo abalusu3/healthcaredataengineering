@@ -1,0 +1,12 @@
+snapshots:
+  - name: cms_hospitals_snapshot
+    description: >
+      SCD Type 2 history of CMS hospital attributes. Star ratings, ownership and readmission
+      measure counts change between CMS refreshes; the snapshot keeps every version with
+      dbt_valid_from / dbt_valid_to so scorecards can be reproduced as of any date.
+    relation: source('raw', 'cms_hospitals')
+    config:
+      schema: snapshots
+      unique_key: ccn
+      strategy: check
+      check_cols: [facility_name, hospital_type, ownership, overall_rating, readm_measures_worse]

@@ -40,6 +40,7 @@ x-airflow-common: &airflow-common
     - ./airflow/plugins:/opt/airflow/plugins
     - ./readmitiq:/opt/airflow/project/readmitiq:ro
     - ./spark:/opt/airflow/spark:ro
+    - ./dbt:/opt/airflow/dbt
     - ./data:/opt/airflow/data:ro
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on

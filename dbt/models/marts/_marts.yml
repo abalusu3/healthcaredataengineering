@@ -1,0 +1,100 @@
+version: 2
+
+models:
+  - name: dim_member
+    description: Member dimension with county social vulnerability.
+    columns:
+      - name: member_key
+        data_tests: [unique, not_null]
+
+  - name: dim_hospital
+    description: Care organizations, enriched with CMS attributes (current SCD2 version) when matched.
+    columns:
+      - name: hospital_key
+        data_tests: [unique, not_null]
+
+  - name: dim_payer
+    columns:
+      - name: payer_id
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+
+  - name: fct_admissions
+    description: >
+      Grain: one admission episode. Readmission outcome (Spark) + LACE risk score (dbt).
+    columns:
+      - name: admission_id
+        data_tests: [unique, not_null]
+      - name: member_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_member'), field: member_key}
+      - name: hospital_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_hospital'), field: hospital_key}
+      - name: payer_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_payer'), field: payer_id}
+      - name: discharge_date
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_day}
+      - name: lace_score
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 19}
+      - name: risk_tier
+        data_tests:
+          - accepted_values:
+              arguments: {values: [low, moderate, high]}
+      - name: readmit_cost
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0}
+
+  - name: mart_hospital_scorecard
+    description: Observed vs LACE-risk-expected readmissions per hospital, with CMS benchmarks.
+    columns:
+      - name: hospital_key
+        data_tests: [unique, not_null]
+      - name: observed_rate
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: {min_value: 0, max_value: 1}
+      - name: network_action
+        data_tests:
+          - accepted_values:
+              arguments: {values: [review, monitor, preferred, insufficient volume]}
+
+  - name: mart_readmission_trends
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [discharge_month, payer_type, source_state, hrrp_cohort]
+
+  - name: mart_member_outreach
+    description: Recently discharged, not-yet-readmitted moderate/high LACE members to call.
+    columns:
+      - name: priority_rank
+        data_tests: [unique, not_null]
+      - name: member_key
+        data_tests: [unique, not_null]
+
+  - name: mart_sdoh_readmission
+    columns:
+      - name: county_fips
+        data_tests: [unique]
+
+  - name: mart_savings_scenario
+    columns:
+      - name: risk_tier
+        data_tests: [unique, not_null]

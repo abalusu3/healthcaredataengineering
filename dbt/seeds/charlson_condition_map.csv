@@ -1,0 +1,41 @@
+snomed_code,description,charlson_category,weight
+22298006,Myocardial infarction,myocardial_infarction,1
+401303003,Acute STEMI,myocardial_infarction,1
+401314000,Acute NSTEMI,myocardial_infarction,1
+399211009,History of myocardial infarction,myocardial_infarction,1
+88805009,Chronic congestive heart failure,congestive_heart_failure,1
+84114007,Heart failure,congestive_heart_failure,1
+230690007,Cerebrovascular accident,cerebrovascular_disease,1
+26929004,Alzheimer's disease,dementia,1
+230265002,Familial Alzheimer's disease of early onset,dementia,1
+87433001,Pulmonary emphysema,chronic_pulmonary_disease,1
+185086009,Chronic obstructive bronchitis,chronic_pulmonary_disease,1
+13645005,Chronic obstructive lung disease,chronic_pulmonary_disease,1
+195967001,Asthma,chronic_pulmonary_disease,1
+233678006,Childhood asthma,chronic_pulmonary_disease,1
+69896004,Rheumatoid arthritis,rheumatic_disease,1
+128302006,Chronic hepatitis C,mild_liver_disease,1
+61977001,Chronic type B viral hepatitis,mild_liver_disease,1
+44054006,Diabetes mellitus type 2,diabetes_uncomplicated,1
+427089005,Diabetes mellitus due to cystic fibrosis,diabetes_uncomplicated,1
+127013003,Disorder of kidney due to diabetes mellitus,diabetes_complicated,2
+90781000119102,Microalbuminuria due to type 2 diabetes,diabetes_complicated,2
+157141000119108,Proteinuria due to type 2 diabetes,diabetes_complicated,2
+368581000119106,Neuropathy due to type 2 diabetes,diabetes_complicated,2
+97331000119101,Macular edema and retinopathy due to type 2 diabetes,diabetes_complicated,2
+60951000119105,Blindness due to type 2 diabetes,diabetes_complicated,2
+433144002,Chronic kidney disease stage 3,renal_disease,2
+431857002,Chronic kidney disease stage 4,renal_disease,2
+46177005,End-stage renal disease,renal_disease,2
+254837009,Malignant neoplasm of breast,malignancy,2
+126906006,Neoplasm of prostate,malignancy,2
+254637007,Non-small cell lung cancer,malignancy,2
+424132000,Non-small cell carcinoma of lung TNM stage 1,malignancy,2
+67811000119102,Primary small cell malignant neoplasm of lung TNM stage 1,malignancy,2
+254632001,Small cell carcinoma of lung,malignancy,2
+363406005,Malignant neoplasm of colon,malignancy,2
+109838007,Overlapping malignant neoplasm of colon,malignancy,2
+93761005,Primary malignant neoplasm of colon,malignancy,2
+93143009,Leukemia,malignancy,2
+94260004,Metastatic malignant neoplasm to colon,metastatic_solid_tumor,6
+94503003,Metastatic malignant neoplasm to prostate,metastatic_solid_tumor,6

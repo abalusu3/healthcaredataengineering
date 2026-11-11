@@ -120,9 +120,13 @@ def jdbc_write(df: DataFrame, settings: Settings, table: str, mode: str = "overw
         .option("password", settings.warehouse_password)
         .option("driver", "org.postgresql.Driver")
         .option("truncate", str(truncate).lower())
-        .option("batchsize", "10000")
-        .option("rewriteBatchedStatements", "true")
+        # Moderate batches: very large batches with reWriteBatchedInserts can fill both TCP
+        # buffers (client writing, server writing replies) and deadlock the connection.
+        .option("batchsize", "1000")
         .option("reWriteBatchedInserts", "true")
+        # Never hang forever: a stalled socket fails the task so Airflow can retry it.
+        .option("socketTimeout", "600")
+        .option("tcpKeepAlive", "true")
         .mode(mode)
         .save()
     )

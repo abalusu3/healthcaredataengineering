@@ -50,6 +50,35 @@ Synthea organization → CMS CCN. Candidates are blocked by state + ZIP5 or stat
 
 Current coverage: 41.6% of inpatient stays match a CMS hospital (22.0% exact, 19.6% probable). Most of the rest occur at Synthea facilities that aren't CMS acute-care hospitals (nursing centers, clinics, VA). Only 65% of stays are even in a ZIP code that has a CMS hospital.
 
+## Gold contract (Phase 3): dbt + Great Expectations
+`build_marts` runs automatically when `transform_silver` reloads `raw.*` (asset-triggered): `dbt deps → dbt build → gx_checks → dbt docs generate`.
+
+```
+raw.* ─► staging (views, 1:1 typed/renamed)
+       ─► intermediate (LACE components: Charlson index, ED use, LACE points)
+       ─► marts: dim_member · dim_hospital · dim_payer · dim_date · fct_admissions
+                 mart_hospital_scorecard · mart_readmission_trends · mart_member_outreach
+                 mart_sdoh_readmission · mart_savings_scenario
+seeds/charlson_condition_map ─┘     snapshots/cms_hospitals_snapshot (SCD2) ─► dim_hospital
+```
+
+| Model | Grain | Business question |
+|---|---|---|
+| `fct_admissions` | admission episode | Every readmission KPI; LACE score (0–19) + risk tier |
+| `mart_hospital_scorecard` | hospital | Which network hospitals readmit more than their case mix predicts? |
+| `mart_readmission_trends` | month × LOB × state × cohort | Where and when are we losing money? |
+| `mart_member_outreach` | member | Who should care management call today? |
+| `mart_sdoh_readmission` | county (FIPS) | Does social vulnerability drive readmissions? |
+| `mart_savings_scenario` | LACE risk tier | Does a transitional-care program pay for itself? |
+
+**Risk adjustment:** the scorecard uses *indirect standardization*. Expected readmissions = Σ over a hospital's index admissions of the plan-wide rate for that admission's LACE tier. The scorecard reports O/E (observed / expected) instead of a raw rate, so hospitals treating sicker members aren't penalized for case mix. O/E is suppressed below 20 index admissions, because ratios are meaningless at tiny volume. Great Expectations caught that issue on its first run.
+
+**LACE index** (van Walraven 2010): **L**ength of stay points + **A**cuity (ED visit within 24 hours before admit = 3) + **C**harlson comorbidity points (from conditions active on the admit date; the code→category map is a dbt seed, with hierarchy rules) + **E**D visits in the prior 6 months. It is validated in the data: readmission rate rises monotonically from the low to the moderate to the high tier.
+
+**Two kinds of tests:**
+- **dbt tests (structure):** unique/not-null keys, FK relationships fact→dims, accepted values, value ranges, and 4 singular business-rule tests (a readmission implies the stay was index-eligible, the readmission falls after discharge, planned stays are never counted as readmissions, LACE components stay within their point ranges).
+- **Great Expectations (plausibility, `readmitiq/quality/gx_checks.py`):** volumes, distributions (mean LACE), and value ranges on marts, with entity-resolution regression guards. Every result is appended to `ops.gx_results`, so data-quality history can be queried.
+
 ## Local services
 | Service | Port | Purpose |
 |---|---|---|

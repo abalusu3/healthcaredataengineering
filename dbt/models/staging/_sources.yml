@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Silver Delta tables loaded into Postgres by the transform_silver DAG.
+    schema: raw
+    loaded_at_field: _processed_at
+    freshness:
+      warn_after: {count: 8, period: day}
+    tables:
+      - name: members
+      - name: encounters
+      - name: conditions
+      - name: payers
+      - name: payer_transitions
+      - name: organizations
+      - name: providers
+      - name: hrrp
+      - name: cms_hospitals
+      - name: svi_county
+      - name: hospital_xref
+        freshness: null  # derived table, no load timestamp
+      - name: inpatient_stays
+        description: One row per admission episode with readmission flags (PySpark).
+        freshness: null  # derived table, no load timestamp
